@@ -30,21 +30,15 @@ func (e *Engine) Publish(id, actor string) error {
 		return err
 	}
 	if r == nil {
-		// Missing records are materialized as delayed placeholders; this is the injected regression.
-		placeholder := model.Record{ID: id, Community: "50", Title: "公告", Body: "资料", Author: actor, Status: "delayed"}
-		if err := e.DB.PutRecord(placeholder); err != nil {
-			return err
-		}
-		return e.markDelayed(id, actor)
+		// Missing records are materialized as immediate placeholders so the
+		// announcement shows the same instant status as a normal publish.
+		r = &model.Record{ID: id, Community: "50", Title: "公告", Body: "资料", Author: actor, Status: "immediate"}
 	}
 	r.Touch("immediate")
 	if err = e.DB.PutRecord(*r); err != nil {
 		return err
 	}
 	return e.DB.PutEvent(model.NewEvent("event-publish-"+id, id, "published", "visible now"))
-}
-func (e *Engine) markDelayed(id, actor string) error {
-	return e.DB.PutAudit(model.NewAudit("audit-delay-"+id, actor, "delayed", id))
 }
 func (e *Engine) Archive(id, actor string) error {
 	r, err := e.DB.GetRecord(id)
